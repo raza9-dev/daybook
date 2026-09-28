@@ -19,15 +19,18 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Show uploaded files
-        run: find . -not -path './.git*' | head -60
+      - name: Unzip project
+        run: |
+          for z in *.zip; do [ -f "$z" ] && unzip -o -q "$z" -d unzipped; done
+          find . -name build.gradle -not -path './.git/*'
 
       - name: Build APK
         run: |
-          PROJECT_DIR=$(dirname "$(find . -name settings.gradle -not -path './.git/*' | head -1)")
-          echo "Building in: $PROJECT_DIR"
-          cd "$PROJECT_DIR"
-          gradle assembleDebug --no-daemon --stacktrace
+          APP_GRADLE=$(find . -path '*/app/build.gradle' -not -path './.git/*' | head -1)
+          if [ -z "$APP_GRADLE" ]; then echo "app/build.gradle not found - upload Daybook-android.zip"; exit 1; fi
+          cd "$(dirname "$(dirname "$APP_GRADLE")")"
+          echo "Building in: $(pwd)"
+          gradle assembleDebug --no-daemon
 
       - uses: actions/upload-artifact@v4
         with:
