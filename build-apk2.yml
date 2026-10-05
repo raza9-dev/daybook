@@ -1,0 +1,40 @@
+name: Build Daybook
+
+# You never need to edit this file again: everything the build needs
+# (versions, settings) comes from Daybook-android.zip and its build.sh.
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Build APK and AAB
+        run: |
+          rm -rf unzipped
+          for z in *.zip; do [ -f "$z" ] && unzip -o -q "$z" -d unzipped; done
+          SCRIPT=$(find . -name build.sh -path '*Daybook*' -not -path './.git/*' | sort | tail -1)
+          if [ -z "$SCRIPT" ]; then echo "build.sh not found. Upload Daybook-android.zip to the repository."; exit 1; fi
+          echo "Building with $SCRIPT"
+          bash "$SCRIPT" "$GITHUB_WORKSPACE/out"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Daybook-APK
+          path: out/Daybook.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Daybook-AAB-for-Play-Store
+          path: out/Daybook.aab
