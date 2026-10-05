@@ -22,12 +22,23 @@ jobs:
 
       - name: Build APK and AAB
         run: |
-          rm -rf unzipped
-          for z in *.zip; do [ -f "$z" ] && unzip -o -q "$z" -d unzipped; done
-          SCRIPT=$(find . -name build.sh -path '*Daybook*' -not -path './.git/*' | sort | tail -1)
-          if [ -z "$SCRIPT" ]; then echo "build.sh not found. Upload Daybook-android.zip to the repository."; exit 1; fi
-          echo "Building with $SCRIPT"
-          bash "$SCRIPT" "$GITHUB_WORKSPACE/out"
+          # Unzip every Daybook zip separately and build the one with the highest version,
+          # so old zips left in the repository can never be built by mistake.
+          rm -rf unzipped && mkdir unzipped
+          best=""; bestv=-1; i=0
+          for z in *.zip; do
+            [ -f "$z" ] || continue
+            i=$((i+1)); d="unzipped/z$i"
+            unzip -o -q "$z" -d "$d" || continue
+            s=$(find "$d" -name build.sh | head -1)
+            [ -n "$s" ] || { echo "$z: old version, skipped"; continue; }
+            v=$(grep -o 'versionCode [0-9]*' "$(dirname "$s")/app/build.gradle" | grep -o '[0-9]*$' || echo 0)
+            echo "$z: versionCode $v"
+            if [ "$v" -gt "$bestv" ]; then bestv=$v; best=$s; fi
+          done
+          if [ -z "$best" ]; then echo "No new Daybook zip found. Upload the latest Daybook-android.zip."; exit 1; fi
+          echo "Building $best (versionCode $bestv)"
+          bash "$best" "$GITHUB_WORKSPACE/out"
 
       - uses: actions/upload-artifact@v4
         with:
